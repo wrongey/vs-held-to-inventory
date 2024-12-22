@@ -1,0 +1,14 @@
+{
+    "type": "code",
+    "modid": "heldtoinventory",
+    "name": "HeldToInventory",
+    "authors": [
+        "zatrik"
+    ],
+    "side": "universal",
+    "description": "Moves your held item into your backpack",
+    "version": "1.0.0",
+    "dependencies": {
+        "game": ""
+    }
+}
