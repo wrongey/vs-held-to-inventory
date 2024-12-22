@@ -60,13 +60,6 @@ public class HeldToInventoryModSystem : ModSystem
             CApi.ShowChatMessage("No item in hand to move!");
             return true;
         }
-
-        var backpackSlots = player.InventoryManager?.GetOwnInventory(GlobalConstants.backpackInvClassName);
-        if (!backpackSlots?.Any(b => b.Empty) ?? true)
-        {
-            CApi.ShowChatMessage("No backpack slots available!");
-            return true;
-        }
         
         SendInventoryUpdatePacket();
         
