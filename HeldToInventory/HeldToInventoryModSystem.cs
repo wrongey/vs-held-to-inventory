@@ -4,6 +4,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
+using ItemSlotOffhand = Vintagestory.API.Common.ItemSlotOffhand;
 
 namespace HeldToInventory;
 
@@ -39,8 +40,16 @@ public class HeldToInventoryModSystem : ModSystem
             GlKeys.B,
             HotkeyType.CharacterControls
         );
+        
+        CApi.Input.RegisterHotKey(
+            "moveToOffhand",
+            "Move Held Item to Offhand",
+            GlKeys.V,
+            HotkeyType.CharacterControls
+        );
 
-        CApi.Input.SetHotKeyHandler("moveToBackpack", OnKeyPressed);
+        CApi.Input.SetHotKeyHandler("moveToBackpack", OnBackpackKeyPressed);
+        CApi.Input.SetHotKeyHandler("moveToOffhand", OnOffhandKeyPressed);
     }
     
     private void StartServerSide(ICoreServerAPI sapi)
@@ -50,7 +59,24 @@ public class HeldToInventoryModSystem : ModSystem
             .SetMessageHandler<InventoryUpdatePacket>(OnInventoryUpdatePacket);
     }
 
-    private bool OnKeyPressed(KeyCombination key)
+    private bool OnOffhandKeyPressed(KeyCombination key)
+    {
+        var player = CApi.World.Player;
+        var activeSlot = player.InventoryManager.ActiveHotbarSlot;
+        var invManager = player.InventoryManager;
+        
+        foreach (var slot in invManager.GetHotbarInventory())
+        {
+            if (slot is not ItemSlotOffhand) continue;
+            
+            activeSlot.TryFlipWith(slot);
+            return true;
+        }
+
+        return true;
+    }
+
+    private bool OnBackpackKeyPressed(KeyCombination key)
     {
         var player = CApi.World.Player;
         var activeSlot = player?.InventoryManager?.ActiveHotbarSlot;
@@ -121,6 +147,6 @@ public class HeldToInventoryModSystem : ModSystem
     
     private void SendInventoryUpdatePacket()
     {
-        CApi.Network.GetChannel("autobackpackmod").SendPacket(new InventoryUpdatePacket{});
+        CApi.Network.GetChannel("autobackpackmod").SendPacket(new InventoryUpdatePacket());
     }
 }

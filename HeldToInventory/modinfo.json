@@ -6,8 +6,8 @@
         "zatrik"
     ],
     "side": "universal",
-    "description": "Moves your held item into your backpack",
-    "version": "1.0.0",
+    "description": "Moves your held item into your backpack or to offhand",
+    "version": "1.0.1",
     "dependencies": {
         "game": ""
     }
