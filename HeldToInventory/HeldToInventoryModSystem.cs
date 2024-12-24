@@ -4,6 +4,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
+using Vintagestory.Client.NoObf;
 using ItemSlotOffhand = Vintagestory.API.Common.ItemSlotOffhand;
 
 namespace HeldToInventory;
@@ -32,7 +33,9 @@ public class HeldToInventoryModSystem : ModSystem
     {
         CApi = capi;
         CApi.Network.RegisterChannel("autobackpackmod")
-            .RegisterMessageType<InventoryUpdatePacket>();
+            .RegisterMessageType<InventoryUpdatePacket>()
+            .RegisterMessageType<InventorySwapPacket>()
+            .RegisterMessageType<OffhandSwapPacket>();
 
         CApi.Input.RegisterHotKey(
             "moveToBackpack",
@@ -56,23 +59,26 @@ public class HeldToInventoryModSystem : ModSystem
     {
         sapi.Network.RegisterChannel("autobackpackmod")
             .RegisterMessageType<InventoryUpdatePacket>()
-            .SetMessageHandler<InventoryUpdatePacket>(OnInventoryUpdatePacket);
+            .SetMessageHandler<InventoryUpdatePacket>(OnInventoryUpdatePacket)
+            .RegisterMessageType<InventorySwapPacket>()
+            .SetMessageHandler<InventorySwapPacket>(OnInventorySwapPacket)
+            .RegisterMessageType<OffhandSwapPacket>()
+            .SetMessageHandler<OffhandSwapPacket>(OnOffhandSwapPacket);
     }
 
     private bool OnOffhandKeyPressed(KeyCombination key)
     {
         var player = CApi.World.Player;
-        var activeSlot = player.InventoryManager.ActiveHotbarSlot;
-        var invManager = player.InventoryManager;
+        var inventoryIsOpen = CApi.OpenedGuis.Any(g => g is GuiDialogInventory);
+        var currentHoveredSlot = player?.InventoryManager?.CurrentHoveredSlot;
         
-        foreach (var slot in invManager.GetHotbarInventory())
+        CApi.Network.GetChannel("autobackpackmod").SendPacket(new OffhandSwapPacket
         {
-            if (slot is not ItemSlotOffhand) continue;
-            
-            activeSlot.TryFlipWith(slot);
-            return true;
-        }
-
+            InventoryId = currentHoveredSlot?.Inventory.InventoryID,
+            SlotId = currentHoveredSlot?.Inventory.GetSlotId(currentHoveredSlot) ?? 0,
+            InventoryIsOpen = inventoryIsOpen
+        });
+        
         return true;
     }
 
@@ -80,6 +86,21 @@ public class HeldToInventoryModSystem : ModSystem
     {
         var player = CApi.World.Player;
         var activeSlot = player?.InventoryManager?.ActiveHotbarSlot;
+        var inventoryIsOpen = CApi.OpenedGuis.Any(g => g is GuiDialogInventory);
+        
+        if (inventoryIsOpen)
+        {
+            var currentHoveredSlot = player?.InventoryManager?.CurrentHoveredSlot;
+            if (currentHoveredSlot != null)
+            {
+                CApi.Network.GetChannel("autobackpackmod").SendPacket(new InventorySwapPacket
+                {
+                    InventoryId = currentHoveredSlot.Inventory.InventoryID,
+                    SlotId = currentHoveredSlot.Inventory.GetSlotId(currentHoveredSlot)
+                });
+                return true;
+            }
+        }
 
         if (activeSlot?.Itemstack == null || activeSlot.Empty)
         {
@@ -87,9 +108,32 @@ public class HeldToInventoryModSystem : ModSystem
             return true;
         }
         
-        SendInventoryUpdatePacket();
+        CApi.Network.GetChannel("autobackpackmod").SendPacket(new InventoryUpdatePacket());
         
         return true;
+    }
+
+    private void OnOffhandSwapPacket(IServerPlayer player, OffhandSwapPacket packet)
+    {
+        var activeSlot = player?.InventoryManager?.ActiveHotbarSlot;
+        var invManager = player?.InventoryManager;
+        var offhandSlot = invManager?.GetHotbarInventory().FirstOrDefault(s => s is ItemSlotOffhand);
+        
+        if (packet.InventoryIsOpen)
+        {
+            invManager?.GetInventory(packet.InventoryId).TryFlipItems(packet.SlotId, offhandSlot);
+        }
+        else
+        {
+            activeSlot?.TryFlipWith(offhandSlot);
+        }
+    }
+
+    private void OnInventorySwapPacket(IServerPlayer player, InventorySwapPacket packet)
+    {
+        var activeSlot = player?.InventoryManager?.ActiveHotbarSlot;
+
+        player?.InventoryManager?.GetInventory(packet.InventoryId).TryFlipItems(packet.SlotId, activeSlot);
     }
     
     private void OnInventoryUpdatePacket(IServerPlayer player, InventoryUpdatePacket packet)
@@ -141,12 +185,6 @@ public class HeldToInventoryModSystem : ModSystem
             return;
         }
         
-        
         player.InventoryManager.BroadcastHotbarSlot();
-    }
-    
-    private void SendInventoryUpdatePacket()
-    {
-        CApi.Network.GetChannel("autobackpackmod").SendPacket(new InventoryUpdatePacket());
     }
 }

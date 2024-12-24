@@ -1,8 +1,4 @@
-﻿using System;
-using ProtoBuf;
-using Vintagestory.API.Client;
-using Vintagestory.API.Common;
-using Vintagestory.API.Config;
+﻿using ProtoBuf;
 
 namespace HeldToInventory;
 
